@@ -2,7 +2,7 @@
 
 > Application de veille personnalisée pour les directeurs et directrices commerciaux de l'hôtellerie.
 > Ce fichier guide Claude (et tout contributeur) sur la vision, le domaine métier et les conventions du projet.
-> Décisions de setup validées le 2026-11-03 : PWA mobile first, stack Next.js + TypeScript + Supabase + API Claude, une seule utilisatrice au départ, contenus FR / EN / ES, code en anglais.
+> Décisions de setup validées le 2026-11-03 : PWA mobile first, stack Next.js + TypeScript + Supabase, connexion Google, budget 0 €, une seule utilisatrice au départ, contenus FR / EN / ES, code en anglais.
 
 ## 1. Vision
 
@@ -70,7 +70,7 @@ Signaux collectés, du plus fort au plus faible :
 ### 4.3 Traitement des actualités
 - Ingestion depuis les sources listées dans `docs/sources.md` (flux RSS en priorité, Google News RSS en complément).
 - Déduplication des articles qui couvrent le même sujet.
-- Résumé et classement thématique automatisés par LLM (API Claude).
+- Résumé, traduction et classement thématique par LLM (Claude). Méthode à 0 € à arrêter : voir décision D1 dans `docs/SPEC.md`. Repli obligatoire sur l'extrait de la source si aucun résumé n'est disponible.
 - Toujours afficher la source et renvoyer vers l'article original. Ne jamais republier l'article complet (droits d'auteur).
 
 ## 5. Principes
@@ -92,9 +92,10 @@ Signaux collectés, du plus fort au plus faible :
 
 - **Plateforme** : web app **PWA, mobile first**, installable sur l'écran d'accueil. Pas d'app native en V1.
 - **Front** : Next.js + TypeScript + Tailwind CSS, gestes de swipe via une librairie dédiée.
-- **Back / données** : Next.js (routes API) + PostgreSQL (ex. Supabase pour la base et l'authentification).
+- **Back / données** : Next.js (routes API) + Supabase (PostgreSQL, authentification Google, Row Level Security).
+- **Budget** : 0 € par mois. Offres gratuites uniquement (Vercel Hobby, Supabase Free), aucune API payante.
 - **Ingestion** : tâche planifiée (cron) qui récupère les flux, déduplique, résume et classe.
-- **LLM** : API Claude pour résumé, traduction et classification thématique.
+- **LLM** : Claude pour résumé, traduction et classification (méthode : décision D1 de `docs/SPEC.md`).
 - **Hébergement** : Vercel ou équivalent.
 
 ## 8. Modèle de données (première ébauche)
@@ -110,8 +111,8 @@ Une seule utilisatrice au départ, mais toutes les données (interactions, profi
 
 ## 9. Conventions de travail
 
-- Toute nouvelle fonctionnalité part d'une user story (voir `docs/user-stories.md`).
-- Repo GitHub privé `Hospitrend`, branche principale `main`.
+- Le périmètre de la V1 et les critères d'acceptation font foi dans `docs/SPEC.md`. Toute nouvelle fonctionnalité part d'une user story (`docs/user-stories.md`).
+- Repo GitHub **public** `eremji/Hospitrend` (licence MIT), branche principale `main`. Aucun secret dans le repo.
 - Petites PR, une story ou une partie de story par PR.
 - Tests sur la logique de scoring et d'ingestion (la partie la plus critique).
 - Ne jamais committer de clé d'API ; utiliser des variables d'environnement.
@@ -119,6 +120,9 @@ Une seule utilisatrice au départ, mais toutes les données (interactions, profi
 
 ## 10. Hors périmètre V1
 
+La liste détaillée est dans `docs/SPEC.md` §6. En résumé :
+
+- Notifications push, recherche, suivi de mots-clés, récapitulatif par e-mail (prévus en V2).
 - Messagerie ou partage social entre utilisateurs.
 - Génération de rapports automatiques.
 - Monétisation.

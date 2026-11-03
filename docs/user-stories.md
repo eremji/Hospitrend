@@ -102,9 +102,16 @@ En tant qu'administrateur, je veux ajouter, désactiver ou modifier une source (
 **US-23 (P2) — Signaler un contenu non pertinent ou erroné**
 En tant que Claire, je veux signaler une carte hors sujet ou un résumé incorrect, afin d'améliorer la qualité du contenu.
 
+## Épique 7 — Pilotage
+
+**US-24 (P1) — Mesurer l'usage**
+En tant qu'administrateur, je veux connaître l'usage de l'app (jours d'utilisation, cartes traitées, likes, sauvegardes), afin d'en discuter avec l'utilisatrice et d'améliorer le produit.
+
 ---
 
 ## Proposition de premier lot (MVP)
+
+> Le périmètre arrêté de la V1 est dans `docs/SPEC.md`.
 
 US-01, US-02, US-04, US-05, US-06, US-08, US-10, US-11, US-14, US-19, US-20, US-21.
 Avec ce lot, Claire peut se connecter, choisir ses thèmes, swiper un flux quotidien réel, lire en détail, sauvegarder, et voir le flux s'adapter.
