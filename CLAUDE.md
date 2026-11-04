@@ -116,7 +116,14 @@ Une seule utilisatrice au départ, mais toutes les données (interactions, profi
 - Petites PR, une story ou une partie de story par PR.
 - Tests sur la logique de scoring et d'ingestion (la partie la plus critique).
 - Ne jamais committer de clé d'API ; utiliser des variables d'environnement.
-- Commandes de build, test et lint : **à compléter une fois la stack choisie.**
+- Commandes (Node.js 22) :
+  - `npm install` : installer les dépendances.
+  - `npm run dev` : lancer l'app en local sur http://localhost:3000 (variables dans `.env.local`, modèle : `.env.example`).
+  - `npm test` : tests automatisés (Vitest). `npm run lint` : vérification du code. `npm run typecheck` : vérification des types.
+  - `npm run build` : compilation de production.
+  - `npm run ingest` : lancer une collecte des sources depuis son ordinateur.
+- Next.js 16 : lire `AGENTS.md` et la documentation fournie dans `node_modules/next/dist/docs/` avant d'écrire du code (`proxy.ts` remplace `middleware.ts`).
+- Base de données : `supabase/schema.sql` (à coller dans l'éditeur SQL de Supabase). Mise en route : `docs/mise-en-route.md`.
 
 ## 10. Hors périmètre V1
 
