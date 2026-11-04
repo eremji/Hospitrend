@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Atom example</title>
+  <entry>
+    <title>Airbnb raises host fees in Europe</title>
+    <link href="https://news.example.com/airbnb-fees#comments"/>
+    <updated>2026-11-02T10:00:00Z</updated>
+    <summary>The platform changes its commission. Hosts react.</summary>
+  </entry>
+</feed>
