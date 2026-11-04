@@ -1,0 +1,62 @@
+/*
+ * Tailwind CSS v4 mapping of the Hospitrend tokens.
+ * In app/globals.css:
+ *   @import "tailwindcss";
+ *   @import "../design/tokens.css";
+ *   @import "../design/tailwind-theme.css";
+ *
+ * `inline` makes utilities reference the CSS variables, so classes like
+ * bg-surface or text-muted switch with the light/dark theme automatically.
+ * (Tailwind v3: use design/tailwind.preset.cjs instead.)
+ */
+@theme inline {
+  --font-sans: var(--ht-font-sans);
+
+  --color-bg: var(--ht-color-bg);
+  --color-surface: var(--ht-color-surface);
+  --color-surface-muted: var(--ht-color-surface-muted);
+  --color-border: var(--ht-color-border);
+  --color-border-strong: var(--ht-color-border-strong);
+  --color-text: var(--ht-color-text);
+  --color-body: var(--ht-color-text-body);
+  --color-muted: var(--ht-color-text-muted);
+  --color-primary: var(--ht-color-primary);
+  --color-on-primary: var(--ht-color-on-primary);
+  --color-accent: var(--ht-color-accent);
+  --color-on-accent: var(--ht-color-on-accent);
+  --color-accent-text: var(--ht-color-accent-text);
+  --color-idea-bg: var(--ht-color-idea-bg);
+  --color-idea-fg: var(--ht-color-idea-fg);
+  --color-danger: var(--ht-color-danger);
+  --color-nav: var(--ht-color-nav-bg);
+  --color-nav-fg: var(--ht-color-nav-fg);
+  --color-nav-active: var(--ht-color-nav-active-bg);
+  --color-nav-active-fg: var(--ht-color-nav-active-fg);
+  --color-placeholder: var(--ht-color-placeholder);
+  --color-topic: var(--ht-topic-bg);
+  --color-topic-fg: var(--ht-topic-fg);
+
+  --radius-sm: var(--ht-radius-sm);
+  --radius-md: var(--ht-radius-md);
+  --radius-lg: var(--ht-radius-lg);
+  --radius-xl: var(--ht-radius-xl);
+  --radius-card: var(--ht-radius-card);
+  --radius-pill: var(--ht-radius-pill);
+
+  --shadow-card: var(--ht-shadow-card);
+
+  --spacing-touch: var(--ht-size-touch-min);
+  --spacing-button: var(--ht-size-button);
+  --spacing-button-lg: var(--ht-size-button-lg);
+  --spacing-action-main: var(--ht-size-action-main);
+  --spacing-action-side: var(--ht-size-action-side);
+  --spacing-nav: var(--ht-size-nav);
+}
+
+/* Dark variant follows the same rule as tokens.css: OS preference unless forced. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *) { @slot; }
+  }
+  &:where([data-theme="dark"], [data-theme="dark"] *) { @slot; }
+}
