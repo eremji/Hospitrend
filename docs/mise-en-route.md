@@ -55,6 +55,7 @@ Ce script crée les tables (sources, articles, interactions, favoris, journal de
 
 1. Dans Supabase : **Authentication** > **Sign In / Providers** (ou **Providers**) > **Google**.
 2. Activez **Enable Sign in with Google**, collez l'**ID client** et le **Code secret du client** de l'étape 3, puis **Save**.
+3. Dans la même liste, ouvrez **Email** et désactivez-le, puis **Save**. Il est actif par défaut : n'importe qui pourrait sinon créer un compte par e-mail et remplir la base gratuite. Hospitrend n'utilise que Google.
 
 ## Étape 5 — Mettre le site en ligne sur Vercel (10 min)
 
