@@ -5,6 +5,13 @@ import { titleFingerprint } from "./text";
 
 export const MAX_ARTICLE_AGE_DAYS = 7;
 export const MAX_ITEMS_PER_SOURCE = 30;
+/**
+ * No new source is started after this much time, so the run always ends in
+ * time to purge and write its log (Vercel stops the function at 300 s; one
+ * source takes at most 6 fetches of 8 s).
+ */
+export const DEFAULT_TIME_BUDGET_MS = 240_000;
+export const SKIPPED_FOR_TIME = "non collectée : temps limite de la collecte atteint";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface SourceRow {
@@ -50,6 +57,8 @@ export interface SourceReport {
   fetched: number;
   inserted: number;
   error?: string;
+  /** True when the time budget ran out before this source was started. */
+  skipped?: boolean;
 }
 
 export interface RunReport {
@@ -58,6 +67,13 @@ export interface RunReport {
   inserted: number;
   purged: number;
   sources: SourceReport[];
+  /** Set when the purge failed: the run is still logged. */
+  purgeError?: string;
+}
+
+export interface RunOptions {
+  /** Time after which no new source is started (default DEFAULT_TIME_BUDGET_MS). */
+  timeBudgetMs?: number;
 }
 
 /** Everything ingestion needs from the outside world, injected for tests. */
@@ -171,8 +187,9 @@ async function mapWithConcurrency<T, R>(list: T[], limit: number, fn: (t: T) => 
 }
 
 /** Daily ingestion run. One failing source never stops the others (SPEC US-19 CA4). */
-export async function runIngestion(deps: IngestDeps, seeds: SourceSeed[]): Promise<RunReport> {
+export async function runIngestion(deps: IngestDeps, seeds: SourceSeed[], opts: RunOptions = {}): Promise<RunReport> {
   const startedAt = deps.now();
+  const deadline = startedAt.getTime() + (opts.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS);
   await deps.seedSourcesIfEmpty(seeds);
   const sources = await deps.listActiveSources();
   // Titles stored during this run, shared by all sources.
@@ -180,6 +197,10 @@ export async function runIngestion(deps: IngestDeps, seeds: SourceSeed[]): Promi
 
   const reports = await mapWithConcurrency(sources, 6, async (src): Promise<SourceReport> => {
     const now = deps.now();
+    if (now.getTime() > deadline) {
+      // Not a failure of the source: its failure counter is left alone.
+      return { source: src.slug, fetched: 0, inserted: 0, error: SKIPPED_FOR_TIME, skipped: true };
+    }
     try {
       const { items, via, feedUrl, notes } = await collectSource(deps, src);
       const recent = selectRecent(items, now);
@@ -233,13 +254,20 @@ export async function runIngestion(deps: IngestDeps, seeds: SourceSeed[]): Promi
     }
   });
 
-  const purged = await deps.purgeOldArticles();
+  let purged = 0;
+  let purgeError: string | undefined;
+  try {
+    purged = await deps.purgeOldArticles();
+  } catch (e) {
+    purgeError = short(e);
+  }
   const report: RunReport = {
     startedAt: startedAt.toISOString(),
     finishedAt: deps.now().toISOString(),
     inserted: reports.reduce((n, r) => n + r.inserted, 0),
     purged,
     sources: reports,
+    ...(purgeError ? { purgeError } : {}),
   };
   await deps.recordRun(report);
   return report;

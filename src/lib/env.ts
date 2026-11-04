@@ -19,6 +19,11 @@ function emailList(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
+/** Every allowed address (ALLOWED_EMAILS + ADMIN_EMAILS), lower-case, without duplicates. */
+export function allowedEmailList(): string[] {
+  return [...new Set([...emailList(process.env.ALLOWED_EMAILS), ...emailList(process.env.ADMIN_EMAILS)])];
+}
+
 /** SPEC US-01 CA2/CA3: only listed Google accounts may use the app. */
 export function isAllowedEmail(email: string | null | undefined): boolean {
   if (!email) return false;

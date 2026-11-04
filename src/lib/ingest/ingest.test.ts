@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { SourceSeed } from "@/lib/sources";
-import { collectSource, runIngestion, selectRecent, type ArticleInsert, type IngestDeps, type SourcePatch, type SourceRow } from "./ingest";
+import { collectSource, runIngestion, selectRecent, SKIPPED_FOR_TIME, type ArticleInsert, type IngestDeps, type SourcePatch, type SourceRow } from "./ingest";
 
 const fixture = (name: string) => readFileSync(join(__dirname, "__fixtures__", name), "utf8");
 const NOW = new Date("2026-11-04T05:00:00Z");
@@ -158,5 +158,38 @@ describe("runIngestion", () => {
     );
     await runIngestion(deps, seeds);
     expect(inserted).toHaveLength(2);
+  });
+
+  it("stops starting sources when the time budget is spent, and still logs the run", async () => {
+    const { deps, patches } = fakeDeps({ "https://www.exemple-tourisme.fr/feed": fixture("wordpress.xml") }, [
+      source({ id: "first", slug: "first" }),
+      source({ id: "late", slug: "late", consecutive_failures: 1 }),
+    ]);
+    // Each call to now() moves the clock forward by 100 s.
+    let t = NOW.getTime();
+    deps.now = () => new Date((t += 100_000));
+    let logged: unknown = null;
+    deps.recordRun = async (r) => {
+      logged = r;
+    };
+    const report = await runIngestion(deps, seeds, { timeBudgetMs: 150_000 });
+    expect(report.sources.find((s) => s.source === "first")?.skipped).toBeUndefined();
+    expect(report.sources.find((s) => s.source === "late")).toMatchObject({ skipped: true, error: SKIPPED_FOR_TIME });
+    expect(patches.late).toBeUndefined();
+    expect(logged).toBe(report);
+  });
+
+  it("logs the run even when the purge fails", async () => {
+    const { deps } = fakeDeps({}, []);
+    deps.purgeOldArticles = async () => {
+      throw new Error("db down");
+    };
+    let logged = false;
+    deps.recordRun = async () => {
+      logged = true;
+    };
+    const report = await runIngestion(deps, seeds);
+    expect(report.purgeError).toBe("db down");
+    expect(logged).toBe(true);
   });
 });

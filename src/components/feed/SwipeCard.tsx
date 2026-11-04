@@ -47,7 +47,16 @@ export const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
 
   return (
     <motion.article
-      aria-label={article.title}
+      // Keyboard and screen readers: the card is a button that opens the detailed reading (WCAG 2.1.1).
+      role="button"
+      tabIndex={0}
+      aria-label={`Lire en détail : ${article.title}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       className="absolute inset-0 flex cursor-grab touch-pan-y select-none flex-col overflow-hidden rounded-card border border-border bg-surface shadow-card active:cursor-grabbing"
       style={{ x, rotate }}
       drag="x"

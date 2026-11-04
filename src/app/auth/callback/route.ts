@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { isAllowedEmail } from "@/lib/env";
+import { syncAllowedEmails } from "@/lib/allowlist";
+import { allowedEmailList, isAllowedEmail } from "@/lib/env";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -22,6 +23,14 @@ export async function GET(request: Request) {
       console.error("[auth] could not delete unauthorised user", e);
     }
     return NextResponse.redirect(`${origin}/acces-reserve`);
+  }
+
+  // The database only lets in addresses listed in `allowed_emails` (H1 of the audit):
+  // make sure the list matches the variables before the first query.
+  try {
+    await syncAllowedEmails(supabaseAdmin(), allowedEmailList());
+  } catch (e) {
+    console.error("[auth] could not sync allowed_emails", e);
   }
 
   return NextResponse.redirect(`${origin}/`);

@@ -50,11 +50,12 @@ export function SavedArticleView({ id }: { id: string }) {
           const next = !saved;
           setSavedState(next);
           try {
-            await setSaved(article.id, next);
-            setToast(next ? "Ajouté à vos favoris" : "Retiré de vos favoris");
+            const queued = await setSaved(article.id, next);
+            if (queued) setToast("Hors connexion : ce sera enregistré dès le retour du réseau.");
+            else setToast(next ? "Ajouté à vos favoris" : "Retiré de vos favoris");
           } catch {
             setSavedState(!next);
-            setToast("Favori non enregistré : vérifiez la connexion.");
+            setToast("Favori non enregistré : réessayez plus tard.");
           }
         }}
       />
