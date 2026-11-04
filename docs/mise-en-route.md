@@ -34,7 +34,11 @@ Gardez un fichier texte ouvert à côté pour noter les valeurs au fur et à mes
 2. Ouvrez le fichier [`supabase/schema.sql`](../supabase/schema.sql) sur GitHub, cliquez sur l'icône **Copy raw file**, puis collez tout dans l'éditeur.
 3. Cliquez sur **Run**. Le message `Success. No rows returned` indique que tout s'est bien passé.
 
-Ce script crée les tables (sources, articles, interactions, favoris, journal des collectes) et les règles de sécurité : chaque personne ne voit que ses propres choix. Il peut être relancé sans risque.
+Ce script crée les tables (sources, articles, interactions, favoris, journal des collectes, adresses autorisées) et les règles de sécurité : seules les adresses autorisées ont accès aux données, et chaque personne ne voit que ses propres choix. Il peut être relancé sans risque.
+
+> **Base déjà créée avec une version précédente de ce fichier ?** Relancez simplement le fichier à jour de la même façon : il ajoute ce qui manque sans rien effacer.
+
+La table des adresses autorisées (`allowed_emails`) se remplit toute seule à partir de la variable `ALLOWED_EMAILS` (étape 5), à chaque connexion et à chaque collecte. Ne la modifiez pas à la main.
 
 ## Étape 3 — Créer les identifiants Google (10 min)
 
@@ -116,6 +120,8 @@ Une adresse qui n'est pas dans `ALLOWED_EMAILS` voit « Accès réservé », et 
 | Retour sur l'écran de connexion après Google | **Site URL** ou **Redirect URLs** manquants dans Supabase (étape 6). |
 | « Accès réservé » avec la bonne adresse | `ALLOWED_EMAILS` mal saisi sur Vercel. Après correction : **Deployments** > ⋯ > **Redeploy**. |
 | « Pas encore d'actualités » | La collecte n'a pas encore tourné (étape 7). |
+| « La sélection n'a pas pu être chargée » juste après la connexion | L'adresse n'est pas encore dans la table `allowed_emails` : vérifiez que `SUPABASE_SECRET_KEY` est bien saisie sur Vercel, puis lancez une collecte (étape 7), qui remet la table à jour. |
+| Une source affiche « non collectée : temps limite » dans `ingest_runs` | La collecte a atteint sa limite de 4 minutes avant d'arriver à cette source. Elle sera prise le lendemain ; si cela se répète, désactivez les sources en erreur. |
 | Le **Run** de la collecte renvoie 401 | `CRON_SECRET` absent des variables Vercel. |
 
 ## Lancer en local (optionnel, pour un développeur)

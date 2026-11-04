@@ -3,7 +3,7 @@ import type { SourceSeed } from "@/lib/sources";
 import type { IngestDeps, SourceRow } from "./ingest";
 
 const USER_AGENT = "Mozilla/5.0 (compatible; HospitrendBot/0.1; +https://github.com/eremji/Hospitrend)";
-const FETCH_TIMEOUT_MS = 12_000;
+const FETCH_TIMEOUT_MS = 8_000;
 const MAX_BYTES = 3_000_000;
 
 export async function fetchText(url: string): Promise<string> {

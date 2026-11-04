@@ -58,15 +58,58 @@ create index if not exists articles_fingerprint_idx on public.articles (title_fi
 create table if not exists public.interactions (
   id bigint generated always as identity primary key,
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  article_id uuid not null references public.articles (id) on delete cascade,
+  -- Nullable: when an old article is purged, the choice is kept (with its themes) for learning and usage stats.
+  article_id uuid references public.articles (id) on delete set null,
   type text not null check (type in ('like', 'dislike', 'open', 'save', 'unsave')),
+  main_theme text,
+  secondary_themes text[],
+  tags text[],
   after_open boolean not null default false,
   duration_ms integer,
   undone boolean not null default false,
   created_at timestamptz not null default now()
 );
 
+-- Upgrade of a database created with an earlier version of this file.
+alter table public.interactions alter column article_id drop not null;
+alter table public.interactions add column if not exists main_theme text;
+alter table public.interactions add column if not exists secondary_themes text[];
+alter table public.interactions add column if not exists tags text[];
+alter table public.interactions drop constraint if exists interactions_article_id_fkey;
+alter table public.interactions add constraint interactions_article_id_fkey
+  foreign key (article_id) references public.articles (id) on delete set null;
+
 create index if not exists interactions_user_idx on public.interactions (user_id, created_at desc);
+create index if not exists interactions_article_idx on public.interactions (article_id);
+
+-- Copies the article's themes and tags into each interaction, so they survive the purge.
+create or replace function public.interactions_copy_themes()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  select a.main_theme, a.secondary_themes, a.tags
+    into new.main_theme, new.secondary_themes, new.tags
+  from public.articles a
+  where a.id = new.article_id;
+  return new;
+end;
+$$;
+
+revoke all on function public.interactions_copy_themes() from public, anon, authenticated;
+
+-- Fills the themes of interactions recorded before this column existed.
+update public.interactions i
+set main_theme = a.main_theme, secondary_themes = a.secondary_themes, tags = a.tags
+from public.articles a
+where a.id = i.article_id and i.main_theme is null;
+
+drop trigger if exists interactions_copy_themes on public.interactions;
+create trigger interactions_copy_themes
+  before insert on public.interactions
+  for each row execute function public.interactions_copy_themes();
 
 create table if not exists public.saved_articles (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -74,6 +117,34 @@ create table if not exists public.saved_articles (
   created_at timestamptz not null default now(),
   primary key (user_id, article_id)
 );
+
+-- ---------------------------------------------------------------------------
+-- Allowed accounts (SPEC US-01 CA2/CA3), enforced by the database itself.
+-- Kept in sync with the ALLOWED_EMAILS and ADMIN_EMAILS variables by the app
+-- (at each allowed sign-in and at each daily collection): never edit it by hand.
+-- An account created outside the app (for example through the Supabase API)
+-- is not in this table, so it can read and write nothing.
+-- ---------------------------------------------------------------------------
+create table if not exists public.allowed_emails (
+  email text primary key check (email = lower(email)),
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.is_allowed()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.allowed_emails e
+    where e.email = lower(coalesce((select auth.jwt()) ->> 'email', ''))
+  );
+$$;
+
+revoke all on function public.is_allowed() from public, anon;
+grant execute on function public.is_allowed() to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Ingestion log
@@ -88,34 +159,36 @@ create table if not exists public.ingest_runs (
 );
 
 -- ---------------------------------------------------------------------------
--- Row Level Security: each user only sees her own interactions and saves.
--- Ingestion uses the secret key on the server, which bypasses RLS.
+-- Row Level Security: only allowed accounts get in, and each one only sees
+-- her own interactions and saves. Ingestion uses the secret key on the server,
+-- which bypasses RLS.
 -- ---------------------------------------------------------------------------
 alter table public.sources enable row level security;
 alter table public.articles enable row level security;
 alter table public.interactions enable row level security;
 alter table public.saved_articles enable row level security;
 alter table public.ingest_runs enable row level security;
+alter table public.allowed_emails enable row level security;
 
 drop policy if exists "sources readable by signed-in users" on public.sources;
 create policy "sources readable by signed-in users" on public.sources
-  for select to authenticated using (true);
+  for select to authenticated using ((select public.is_allowed()));
 
 drop policy if exists "articles readable by signed-in users" on public.articles;
 create policy "articles readable by signed-in users" on public.articles
-  for select to authenticated using (true);
+  for select to authenticated using ((select public.is_allowed()));
 
 drop policy if exists "own interactions" on public.interactions;
 create policy "own interactions" on public.interactions
   for all to authenticated
-  using (user_id = (select auth.uid()))
-  with check (user_id = (select auth.uid()));
+  using (user_id = (select auth.uid()) and (select public.is_allowed()))
+  with check (user_id = (select auth.uid()) and (select public.is_allowed()));
 
 drop policy if exists "own saved articles" on public.saved_articles;
 create policy "own saved articles" on public.saved_articles
   for all to authenticated
-  using (user_id = (select auth.uid()))
-  with check (user_id = (select auth.uid()));
+  using (user_id = (select auth.uid()) and (select public.is_allowed()))
+  with check (user_id = (select auth.uid()) and (select public.is_allowed()));
 
 -- ---------------------------------------------------------------------------
 -- Daily feed (Démo 1): recent articles not yet liked or disliked,

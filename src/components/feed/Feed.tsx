@@ -10,7 +10,9 @@ import {
   fetchFeed,
   fetchSavedIds,
   fetchTodayStats,
+  flushOfflineQueue,
   recordDecision,
+  type DecisionRef,
   recordOpen,
   setSaved,
   undoDecision,
@@ -25,13 +27,18 @@ const MORE_STEP = 5;
 
 interface LastChoice {
   article: Article;
-  interactionId: number | null;
+  /** Null while the choice is being sent. */
+  ref: DecisionRef | null;
   type: Decision;
 }
+
+const OFFLINE_MESSAGE = "Hors connexion : vos choix seront envoyés dès le retour du réseau.";
 
 type Status = "loading" | "ready" | "error";
 
 async function loadInitial() {
+  // Choices made offline are sent first, so the counter and the feed take them into account.
+  await flushOfflineQueue();
   const [stats, ids] = await Promise.all([fetchTodayStats(), fetchSavedIds()]);
   const queue = await fetchFeed(DAILY_SIZE - stats.processed);
   return { stats, ids, queue };
@@ -53,6 +60,13 @@ export function Feed() {
   const cardRef = useRef<SwipeCardHandle>(null);
   const openedAt = useRef<number>(0);
   const openedFor = useRef<string | null>(null);
+  const offlineNoticeShown = useRef(false);
+
+  const notifyQueued = useCallback(() => {
+    if (offlineNoticeShown.current) return;
+    offlineNoticeShown.current = true;
+    setToast(OFFLINE_MESSAGE);
+  }, []);
 
   const load = useCallback(() => {
     loadInitial()
@@ -112,24 +126,27 @@ export function Feed() {
       setQueue((q) => q.slice(1));
       setProcessed((n) => n + 1);
       if (type === "like") setLiked((n) => n + 1);
-      const choice: LastChoice = { article, interactionId: null, type };
+      const choice: LastChoice = { article, ref: null, type };
       setLast(choice);
       recordDecision(article.id, type, afterOpen)
-        .then((id) => setLast((l) => (l === choice ? { ...choice, interactionId: id } : l)))
+        .then(({ ref, queued }) => {
+          setLast((l) => (l === choice ? { ...choice, ref } : l));
+          if (queued) notifyQueued();
+        })
         .catch((e) => {
           console.error(e);
-          setToast("Choix non enregistré : vérifiez la connexion.");
+          setToast("Choix non enregistré : réessayez plus tard.");
         });
     },
-    [queue, detail, closeDetail],
+    [queue, detail, closeDetail, notifyQueued],
   );
 
   const undo = useCallback(async () => {
-    if (!last || last.interactionId === null) return;
+    if (!last || last.ref === null) return;
     const choice = last;
     setLast(null); // only the last choice can be undone (SPEC US-07 CA4)
     try {
-      await undoDecision(choice.interactionId!);
+      await undoDecision(choice.ref!);
       setQueue((q) => [choice.article, ...q]);
       setProcessed((n) => Math.max(0, n - 1));
       if (choice.type === "like") setLiked((n) => Math.max(0, n - 1));
@@ -150,11 +167,12 @@ export function Feed() {
       });
       setSavedCount((n) => n + (willSave ? 1 : -1));
       try {
-        await setSaved(a.id, willSave);
-        setToast(willSave ? "Ajouté à vos favoris" : "Retiré de vos favoris");
+        const queued = await setSaved(a.id, willSave);
+        if (queued) setToast(OFFLINE_MESSAGE);
+        else setToast(willSave ? "Ajouté à vos favoris" : "Retiré de vos favoris");
       } catch (e) {
         console.error(e);
-        setToast("Favori non enregistré : vérifiez la connexion.");
+        setToast("Favori non enregistré : réessayez plus tard.");
       }
     },
     [savedIds],
@@ -272,7 +290,7 @@ export function Feed() {
             <button
               type="button"
               onClick={undo}
-              disabled={!last || last.interactionId === null}
+              disabled={!last || last.ref === null}
               aria-label="Annuler le dernier choix"
               className="flex size-action-side items-center justify-center rounded-full border border-border bg-surface text-muted shadow-card disabled:opacity-40"
             >
@@ -317,7 +335,7 @@ export function Feed() {
           seen={processed}
           liked={liked}
           saved={savedCount}
-          canUndo={!!last && last.interactionId !== null}
+          canUndo={!!last && last.ref !== null}
           onUndo={undo}
           more={extra && extra.length > 0 ? () => {
             setDailySize((s) => s + MORE_STEP);
